@@ -2,7 +2,7 @@
 #include <Arduino_LSM6DS3.h>
 #include <ArduinoJson.h>
 
-#define CHARACTERISTIC_LENGTH 77
+#define CHARACTERISTIC_LENGTH 125
 
 // BLE IMU Service
 // UUID: 2A5D -> "Sensor Location"
@@ -10,14 +10,13 @@
 // https://www.bluetooth.com/specifications/assigned-numbers/
 BLEService IMUService("2A5D");
 
-// BLE Characteristics for accelerometer and gyroscope readings
+// BLE Characteristic for accelerometer and gyroscope readings
 // Remote clients will be able to get notifications if any characteristic changes
 // Each characteristic has a standard 16-bit characteristic UUID
 // Note: Maximum characteristic packet size is 512 bytes
 // For more info on BLE services & characteristics:
 // https://www.arduino.cc/en/Reference/ArduinoBLEBLECharacteristicBLECharacteristic
-BLEStringCharacteristic accelChar("190313ee-5f69-489f-a812-b93eeb413329", BLERead | BLENotify, CHARACTERISTIC_LENGTH);
-BLEStringCharacteristic gyroChar("ed131e76-3d4f-4fd9-b8f9-fba0bc580ee8", BLERead | BLENotify, CHARACTERISTIC_LENGTH);
+BLEStringCharacteristic IMUChar("190313ee-5f69-489f-a812-b93eeb413329", BLERead | BLENotify, CHARACTERISTIC_LENGTH);
 
 // Variables for storing previous accelerometer readings
 float ax_old = 0;
@@ -55,8 +54,7 @@ void setup() {
   BLE.setAdvertisedService(IMUService); // add the service UUID
   
   // Add all the characteristics for the service
-  IMUService.addCharacteristic(accelChar);
-  IMUService.addCharacteristic(gyroChar);
+  IMUService.addCharacteristic(IMUChar);
   
   BLE.addService(IMUService); // Add the IMU service
   
@@ -134,35 +132,33 @@ void loop() {
 
 void updateIMUReadings() {
   float ax, ay, az, gx, gy, gz;
-      
   if (IMU.accelerationAvailable()) {
     IMU.readAcceleration(ax, ay, az);
     // DEBUG INFO: Transmit accelerometer readings to serial monitor for debugging purposes
-//    Serial.print(ax);
-//    Serial.print('\t');
-//    Serial.print(ay);
-//    Serial.print('\t');
-//    Serial.println(az);
+    //    Serial.print(ax);
+    //    Serial.print('\t');
+    //    Serial.print(ay);
+    //    Serial.print('\t');
+    //    Serial.println(az);
   }
 
   if(IMU.gyroscopeAvailable()) {
     IMU.readGyroscope(gx, gy, gz);
     // DEBUG INFO: Transmit gyroscope readings to serial monitor for debugging purposes
-//    Serial.print(gx);
-//    Serial.print('\t');
-//    Serial.print(gy);
-//    Serial.print('\t');
-//    Serial.println(gz);
+    //    Serial.print(gx);
+    //    Serial.print('\t');
+    //    Serial.print(gy);
+    //    Serial.print('\t');
+    //    Serial.println(gz);
   }
-
 
 /* Write to the BLE characteristic for the sensor if
  *  any of the readings have changed.
  *  
  *  Size of JSON is determined as follows:
       - timestamp -> string = 9 bytes
-      - coordinates (x,y,z) -> float*3 = 48 bytes
-      - Total = 73 bytes
+      - coordinates (x,y,z) -> float*3 = 48*2 = 96 bytes (2 sensors)
+      - Total = 105 bytes
  */
   unsigned long currentMillis = millis();
   unsigned long seconds = currentMillis / 1000;
@@ -179,34 +175,26 @@ void updateIMUReadings() {
   String hrs = hours > 10? String(hours) : "0" + String(hours);
   String time_string = hrs + ':' + mins + ':' + secs + ':' + ms;
   
-  if(ax != ax_old || ay != ay_old || az != az_old) {
+  if(ax != ax_old || ay != ay_old || az != az_old ||
+     gx != gx_old || gy != gy_old || gz != gz_old) {
     ax_old = ax;
     ay_old = ay;
     az_old = az;
-
-    StaticJsonDocument<CHARACTERISTIC_LENGTH> doc;
-    doc["x"] = ax;
-    doc["y"] = ay;
-    doc["z"] = az;
-    doc["timestamp"] = time_string;
-
-    char buf[CHARACTERISTIC_LENGTH];
-    serializeJson(doc, buf, CHARACTERISTIC_LENGTH);
-    accelChar.writeValue(buf);
-  }
-  if(gx != gx_old || gy != gy_old || gz != gz_old) {
     gx_old = gx;
     gy_old = gy;
     gz_old = gz;
 
     StaticJsonDocument<CHARACTERISTIC_LENGTH> doc;
-    doc["x"] = gx;
-    doc["y"] = gy;
-    doc["z"] = gz;
+    doc["ax"] = ax;
+    doc["ay"] = ay;
+    doc["az"] = az;
+    doc["gx"] = gx;
+    doc["gy"] = gy;
+    doc["gz"] = gz;
     doc["timestamp"] = time_string;
 
     char buf[CHARACTERISTIC_LENGTH];
     serializeJson(doc, buf, CHARACTERISTIC_LENGTH);
-    gyroChar.writeValue(buf);
+    IMUChar.writeValue(buf);
   }
 }
