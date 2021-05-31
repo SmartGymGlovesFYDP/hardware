@@ -36,89 +36,24 @@ float gz_old = 0;
 // Last time the IMU sensors were read, in ms
 long previousMillis = 0;
 
-void setup() {
-  // Initialize serial monitor
-  // (Used for debugging purposes)
-  Serial.begin(9600);
-  while (!Serial);
-  Serial.println();
-
-  // Connect to Wi-Fi network
-  Serial.print("Connecting to Wi-Fi");
-  int status = WL_IDLE_STATUS;
-  while (status != WL_CONNECTED) {
-    status = WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-    Serial.print("Waiting to connect...\n");
-    delay(300);
-  }
-  Serial.println();
-  Serial.print("Connected with IP: ");
-  Serial.println(WiFi.localIP());
-  Serial.println();
-
-  // Connect to Firebase
-  Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH, WIFI_SSID, WIFI_PASSWORD);
-  Firebase.reconnectWiFi(true);
-
-  // Connect to other glove over BLE
-  if(setupBLE()) {
-    readBLE();
-  }
-
-  Serial.println("-----------------------------------");
-  Serial.println("----------Begin Sampling-----------");
-  Serial.println("-----------------------------------");
-  Serial.println();
-
-  // Initialize IMU sensors
-  if (!IMU.begin()) {
-    Serial.println("Failed to initialize IMU!");
-    while (1);
-  }
-
-  // DEBUG INFO: Sample rate
-  // Accelerometer sample rate in Hz and G's
-  Serial.print("Accelerometer sample rate = ");
-  Serial.print(IMU.accelerationSampleRate());
-  Serial.println(" Hz");
-  Serial.println("Acceleration in G's");
-  Serial.println();
-  
-  // Gyroscope sample rate in Hz and degrees/s
-  Serial.print("Gyroscope sample rate = ");
-  Serial.print(IMU.gyroscopeSampleRate());
-  Serial.println(" Hz");
-  Serial.println("Gyroscope in degrees/second");
-  Serial.println();
-}
+/*------------FORWARD DECLARATIONS--------------*/
+void updateIMUReadings();
+bool setupBLE();
+bool connectPeripheral();
+void readBLE();
 
 bool setupBLE() {
-     // initialize the BLE hardware
-    BLE.begin();
-    Serial.println("BLE Initialized as Central");
+  // initialize the BLE hardware
+  BLE.begin();
+  Serial.println("BLE Initialized as Central");
   
-    // start scanning for peripherals
-    while(1){
-      BLE.scanForUuid("2A5D");
-      peripheral = BLE.available();
-      if(peripheral){
-        Serial.print("Found ");
-        Serial.print(peripheral.address());
-        Serial.print(" '");
-        Serial.print(peripheral.localName());
-        Serial.print("' ");
-        Serial.print(peripheral.advertisedServiceUuid());
-        Serial.println();
-        break;
-     }
-    }
-    //BLE.scan();
-    
-    // check if a peripheral has been discovered
+  // start scanning for peripherals
+  BLE.scanForUuid(SERVICE_UUID);
+  int max_attempts = 20; // i.e. try for 2s (TOD0: Determine if sufficient)
+  for(int i = 0; i < max_attempts; i++) {
+    delay(100); // delay 100ms (TODO: determine appropriate delay interval)
     peripheral = BLE.available();
-  
-    if (peripheral) {
-      // discovered a peripheral, print out address, local name, and advertised service
+    if(peripheral){
       Serial.print("Found ");
       Serial.print(peripheral.address());
       Serial.print(" '");
@@ -126,44 +61,34 @@ bool setupBLE() {
       Serial.print("' ");
       Serial.print(peripheral.advertisedServiceUuid());
       Serial.println();
-  
       if (peripheral.localName() != "IMUMonitor") {
         return false;
       }
       // stop scanning
       BLE.stopScan();
       return true;
-      
-    } else {
-      Serial.println("Could not find IMUMonitor service UUID");
     }
-    return false;
+  }
+  return false;
+}
+
+bool connectPeripheral() {
+  if(peripheral.connected()) {
+    Serial.println("Already connnected");
+    return true;
+  } else if (peripheral.connect()) {
+    Serial.println("Connected to peripheral");
+    return true;
+  }
+  Serial.println("Failed to connect to peripheral!");
+  return false;
 }
 
 void readBLE() {
-  // connect to the peripheral
-  Serial.println("Connecting to peripheral ...");
-
-  if (peripheral.connect()) {
-    Serial.println("Connected");
-  } else {
-    Serial.println("Failed to connect!");
-    return;
-  }
-
-  // discover peripheral attributes
-  Serial.println("Discovering attributes ...");
-  if (peripheral.discoverAttributes()) {
-    Serial.println("Attributes discovered");
-  } else {
-    Serial.println("Attribute discovery failed!");
-    peripheral.disconnect();
-    return;
-  }
-
-  // retrieve the LED characteristic
+  // retrieve the IMU characteristic
   BLECharacteristic imuCharacteristic = peripheral.characteristic(CHARACTERISTIC_UUID);
 
+  // Validation
   if (!imuCharacteristic) {
     Serial.println("Peripheral does not have IMU characteristic!");
     peripheral.disconnect();
@@ -174,27 +99,14 @@ void readBLE() {
     return;
   }
 
-  if (peripheral.connected()) {
-    char buf[PAYLOAD_LENGTH];
-    imuCharacteristic.readValue(buf, PAYLOAD_LENGTH);
-    Serial.println(buf);
-  }
+  // Read data
+  char buf[PAYLOAD_LENGTH + 1];
+  imuCharacteristic.readValue(buf, PAYLOAD_LENGTH);
+  buf[PAYLOAD_LENGTH] = '\0';
+  Serial.println(buf);
 
-  Serial.println("Peripheral disconnected");
-}
-
-void loop() {
-  int i = 0; // configure for # of iterations you'd like
-  while(i < 1) {
-    long currentMillis = millis();
-    // Read from sensors every 200ms
-    if (currentMillis - previousMillis >= 200) {
-      previousMillis = currentMillis;
-      updateIMUReadings();
-    }
-    i++;
-  }
-  while(1);
+  // Push to firebase
+  Firebase.pushJSON(firebaseData, "Gyroscope/Sample", buf);
 }
 
 void updateIMUReadings() {
@@ -240,6 +152,7 @@ void updateIMUReadings() {
   
   if(ax != ax_old || ay != ay_old || az != az_old ||
      gx != gx_old || gy != gy_old || gz != gz_old) {
+    Serial.println("Reading changed");
     ax_old = ax;
     ay_old = ay;
     az_old = az;
@@ -255,9 +168,84 @@ void updateIMUReadings() {
     doc["gy"] = gy;
     doc["gz"] = gz;
     doc["timestamp"] = time_string;
+    // TODO: Add attribute to indicate which glove is sending the data
 
     String jsonString;
     serializeJson(doc, jsonString);
+    Serial.println("Pushing to firebase: " + jsonString);
     Firebase.pushJSON(firebaseData, "Gyroscope/Sample", jsonString);
+  }
+}
+
+void setup() {
+  // Initialize serial monitor
+  // (Used for debugging purposes)
+  Serial.begin(9600);
+  while (!Serial);
+  Serial.println();
+
+  // Connect to Wi-Fi network
+  Serial.println("Connecting to Wi-Fi");
+  int status = WL_IDLE_STATUS;
+  while (status != WL_CONNECTED) {
+    status = WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    Serial.println("Waiting to connect...");
+    delay(300);
+  }
+  Serial.println();
+  Serial.print("Connected with IP: ");
+  Serial.println(WiFi.localIP());
+  Serial.println();
+
+  // Connect to Firebase
+  Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH, WIFI_SSID, WIFI_PASSWORD);
+  Firebase.reconnectWiFi(true);
+
+  // Connect to other glove over BLE
+  //setupBLE();
+
+  Serial.println("-----------------------------------");
+  Serial.println("----------Begin Sampling-----------");
+  Serial.println("-----------------------------------");
+  Serial.println();
+
+  // Initialize IMU sensors
+  if (!IMU.begin()) {
+    Serial.println("Failed to initialize IMU!");
+    while (1);
+  }
+
+  // DEBUG INFO: Sample rate
+  // Accelerometer sample rate in Hz and G's
+  Serial.print("Accelerometer sample rate = ");
+  Serial.print(IMU.accelerationSampleRate());
+  Serial.println(" Hz");
+  Serial.println("Acceleration in G's");
+  Serial.println();
+  
+  // Gyroscope sample rate in Hz and degrees/s
+  Serial.print("Gyroscope sample rate = ");
+  Serial.print(IMU.gyroscopeSampleRate());
+  Serial.println(" Hz");
+  Serial.println("Gyroscope in degrees/second");
+  Serial.println();
+}
+
+void loop() {
+  int i = 0; 
+  // configure for # of iterations you'd like
+  while(i < 1) {
+    long currentMillis = millis();
+    // Read from sensors every 200ms
+    if (currentMillis - previousMillis >= 200) {
+      previousMillis = currentMillis;
+      // push reading from this glove to firebase
+      updateIMUReadings();
+      // push reading from other glove to firebase
+      if(connectPeripheral()){
+        readBLE();
+      }
+    }
+    i++;
   }
 }
