@@ -19,6 +19,9 @@
 /*------------GLOBAL VARIABLES--------------*/
 FirebaseData firebaseData;
 WiFiUDP Udp;
+IPAddress left_ip(10, 31, 164, 169);  // Static IP of left glove: 10.31.164.169
+unsigned int left_port = 2390;
+unsigned int localPort = 2390;
 
 // Variables for storing previous accelerometer readings
 float ax_old = 0;
@@ -31,10 +34,7 @@ float gy_old = 0;
 float gz_old = 0;
 
 // Last time the IMU sensors were read, in ms
-uint32_t previousMillis = 0;
-unsigned int localPort = 2390; // local port to listen on
-IPAddress ip(10, 31, 164, 169);  // Static IP: 10.31.164.169
-char  ReplyBuffer[] = "acknowledged";
+long previousMillis = 0;
 
 /*------------FORWARD DECLARATIONS--------------*/
 void updateIMUReadings();
@@ -65,7 +65,7 @@ void updateIMUReadings() {
     //    Serial.print('\t');
     //    Serial.println(gz);
   }
-
+  
   uint32_t microseconds = TC4->COUNT32.COUNT.reg / 48; 
   uint32_t currentMillis = microseconds / 1000;
   uint32_t seconds = currentMillis / 1000;
@@ -101,7 +101,7 @@ void updateIMUReadings() {
     String jsonString;
     serializeJson(doc, jsonString);
     Serial.println("Pushing to firebase: " + jsonString);
-    Firebase.pushJSON(firebaseData, "IMU/" + time_string + "/leftGlove", jsonString);
+    Firebase.pushJSON(firebaseData, "IMU/" + time_string + "/rightGlove", jsonString);
   }
 }
 
@@ -111,10 +111,7 @@ void setup() {
   Serial.begin(9600);
   while (!Serial);
   Serial.println();
-
-  // Set static IP address
-  WiFi.config(ip);
-
+  
   // Connect to Wi-Fi network
   Serial.println("Connecting to Wi-Fi");
   int status = WL_IDLE_STATUS;
@@ -123,6 +120,7 @@ void setup() {
     Serial.println("Waiting to connect...");
     delay(300);
   }
+  
   Serial.println();
   Serial.print("Connected with IP: ");
   Serial.println(WiFi.localIP());
@@ -163,21 +161,25 @@ void setup() {
   Serial.println("Gyroscope in degrees/second");
   Serial.println();
 
-  // Wait for start signal from right glove
+  // Send start signal to left glove and wait for ack packet
+  if(!Udp.beginPacket(left_ip, left_port)) {
+    Serial.println("Udp.beginPacket(): Error with supplied IP or port of remote host");
+  }
+  char buf[] = "start";
+  Udp.write(buf);
+  if(!Udp.endPacket()) {
+    Serial.println("Error sending UDP Packet to left glove");
+  };
   while(!Udp.parsePacket())
   {
-    Serial.println("Awaiting UDP Packet from right glove");
+    Serial.println("Awaiting acknowledgement from left glove");
   }; 
-  // send ack packet
-  Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());
-  Udp.write(ReplyBuffer);
-  Udp.endPacket();
-
-  // start the timer
   setupClock();
 }
 
 void setupClock() {
+  
+   
   GCLK->CLKCTRL.reg = GCLK_CLKCTRL_CLKEN |                // Enable the generic clock...
                       GCLK_CLKCTRL_GEN_GCLK0 |            // ....on GCLK0 at 48MHz
                       GCLK_CLKCTRL_ID_TC4_TC5;            // Feed the GCLK0 to TC4 and TC5
