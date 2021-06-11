@@ -167,11 +167,14 @@ void setup() {
   while(!Udp.parsePacket())
   {
     Serial.println("Awaiting UDP Packet from right glove");
+    delay(1000);
   }; 
   // send ack packet
-  Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());
-  Udp.write(ReplyBuffer);
-  Udp.endPacket();
+  for(int i = 0; i < 5; i++) {
+    Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());
+    Udp.write(ReplyBuffer);
+    Udp.endPacket();
+  }
 
   // start the timer
   setupClock();

@@ -34,7 +34,7 @@ float gy_old = 0;
 float gz_old = 0;
 
 // Last time the IMU sensors were read, in ms
-long previousMillis = 0;
+uint32_t previousMillis = 0;
 
 /*------------FORWARD DECLARATIONS--------------*/
 void updateIMUReadings();
@@ -162,24 +162,25 @@ void setup() {
   Serial.println();
 
   // Send start signal to left glove and wait for ack packet
-  if(!Udp.beginPacket(left_ip, left_port)) {
-    Serial.println("Udp.beginPacket(): Error with supplied IP or port of remote host");
-  }
-  char buf[] = "start";
-  Udp.write(buf);
-  if(!Udp.endPacket()) {
-    Serial.println("Error sending UDP Packet to left glove");
-  };
-  while(!Udp.parsePacket())
-  {
+  while(1) {
+    if(!Udp.beginPacket(left_ip, left_port)) {
+      Serial.println("Udp.beginPacket(): Error with supplied IP or port of remote host");
+    }
+    char buf[] = "start";
+    Udp.write(buf);
+    if(!Udp.endPacket()) {
+      Serial.println("Error sending UDP Packet to left glove");
+    };
+    if(Udp.parsePacket())
+    {
+      setupClock();
+      break;
+    }; 
     Serial.println("Awaiting acknowledgement from left glove");
-  }; 
-  setupClock();
+  }
 }
 
-void setupClock() {
-  
-   
+void setupClock() {   
   GCLK->CLKCTRL.reg = GCLK_CLKCTRL_CLKEN |                // Enable the generic clock...
                       GCLK_CLKCTRL_GEN_GCLK0 |            // ....on GCLK0 at 48MHz
                       GCLK_CLKCTRL_ID_TC4_TC5;            // Feed the GCLK0 to TC4 and TC5
