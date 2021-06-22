@@ -75,11 +75,11 @@ void updateIMUReadings() {
   String secs = seconds > 10? String(seconds) : "0" + String(seconds);
   String mins = minutes > 10? String(minutes) : "0" + String(minutes);
   String hrs = hours > 10? String(hours) : "0" + String(hours);
-  String time_string = hrs + ':' + mins + ':' + secs + '.' + ms;
+  String time_string = hrs + ':' + mins + ':' + secs + ':' + ms;
   
   if(ax != ax_old || ay != ay_old || az != az_old ||
      gx != gx_old || gy != gy_old || gz != gz_old) {
-    Serial.println("Reading changed");
+    //Serial.println("Reading changed");
     ax_old = ax;
     ay_old = ay;
     az_old = az;
@@ -99,8 +99,8 @@ void updateIMUReadings() {
 
     String jsonString;
     serializeJson(doc, jsonString);
-    Serial.println("Pushing to firebase: " + jsonString);
-    Firebase.pushJSON(firebaseData, "IMU/" + time_string + "/leftGlove", jsonString);
+    //Serial.println("Pushing to firebase: " + jsonString);
+    Firebase.pushJSON(firebaseData, time_string + "/leftGlove", jsonString);
   }
 }
 
@@ -165,21 +165,21 @@ void setup() {
   // Wait for start signal from right glove
   while(!Udp.parsePacket())
   {
-    Serial.println("Awaiting UDP Packet from right glove");
-    delay(1000);
+    //Serial.println("Awaiting UDP Packet from right glove");
+    delay(500);
   }; 
+  Serial.println("Starting to send acknow. pack.");
   // send ack packet
-  for(int i = 0; i < 5; i++) {
-    Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());
-    Udp.write(ReplyBuffer);
-    Udp.endPacket();
-  }
+  Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());
+  Udp.write(ReplyBuffer);
+  Udp.endPacket();
 
   // start the timer
   setupClock();
 }
 
 void setupClock() {
+  //Serial.println("Starting to setup clock");
   GCLK->CLKCTRL.reg = GCLK_CLKCTRL_CLKEN |                // Enable the generic clock...
                       GCLK_CLKCTRL_GEN_GCLK0 |            // ....on GCLK0 at 48MHz
                       GCLK_CLKCTRL_ID_TC4_TC5;            // Feed the GCLK0 to TC4 and TC5
@@ -200,16 +200,21 @@ void setupClock() {
 void loop() {
   int i = 0; 
   // configure for # of iterations you'd like
-  while(i < 3) {
+  //Serial.println("Entering loop:");
+  while(i < 500000) {
     uint32_t microseconds = TC4->COUNT32.COUNT.reg / 48; 
     currentMillis = microseconds / 1000;
+    //Serial.println("in loop() on iteration " + String(i));
+    //Serial.println(String(currentMillis));
     // Read from sensors every 200ms
-    if (currentMillis - previousMillis >= 200) {
+    if (currentMillis % 250 == 0) {
+      //Serial.println(String(currentMillis));
       previousMillis = currentMillis;
       // push reading from this glove to firebase
       updateIMUReadings();
     }
     i++;
   }
+  Serial.println("End of loop");
   while(1);
 }
