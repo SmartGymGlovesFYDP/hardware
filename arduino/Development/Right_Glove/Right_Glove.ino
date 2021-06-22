@@ -14,7 +14,7 @@
 //    - coordinates for both sensors (x,y,z) -> 112 bytes
 //    - Total = 121 bytes
 // Calculated at: https://arduinojson.org/v6/assistant/
-#define PAYLOAD_LENGTH 121
+#define PAYLOAD_LENGTH 150
 
 /*------------GLOBAL VARIABLES--------------*/
 FirebaseData firebaseData;
@@ -35,6 +35,7 @@ float gz_old = 0;
 
 // Last time the IMU sensors were read, in ms
 uint32_t previousMillis = 0;
+uint32_t currentMillis = 0;
 
 /*------------FORWARD DECLARATIONS--------------*/
 void updateIMUReadings();
@@ -66,8 +67,6 @@ void updateIMUReadings() {
     //    Serial.println(gz);
   }
   
-  uint32_t microseconds = TC4->COUNT32.COUNT.reg / 48; 
-  uint32_t currentMillis = microseconds / 1000;
   uint32_t seconds = currentMillis / 1000;
   uint32_t minutes = seconds / 60;
   uint32_t hours = minutes / 60;
@@ -76,11 +75,12 @@ void updateIMUReadings() {
   String secs = seconds > 10? String(seconds) : "0" + String(seconds);
   String mins = minutes > 10? String(minutes) : "0" + String(minutes);
   String hrs = hours > 10? String(hours) : "0" + String(hours);
-  String time_string = hrs + ':' + mins + ':' + secs + '.' + ms;
+  String time_string = hrs + ':' + mins + ':' + secs + ':' + ms;
+  //Serial.println(time_string);
   
   if(ax != ax_old || ay != ay_old || az != az_old ||
      gx != gx_old || gy != gy_old || gz != gz_old) {
-    Serial.println("Reading changed");
+    //Serial.println("Reading changed");
     ax_old = ax;
     ay_old = ay;
     az_old = az;
@@ -100,8 +100,11 @@ void updateIMUReadings() {
 
     String jsonString;
     serializeJson(doc, jsonString);
-    Serial.println("Pushing to firebase: " + jsonString);
-    Firebase.pushJSON(firebaseData, "IMU/" + time_string + "/rightGlove", jsonString);
+    //Serial.println("Pushing to firebase: " + jsonString);
+    String title = time_string + "/rightGlove";
+    if(!Firebase.pushJSON(firebaseData, title, jsonString)) {
+      Serial.println("Failed to push " + time_string + " to firebase");  
+    }
   }
 }
 
@@ -176,11 +179,13 @@ void setup() {
       setupClock();
       break;
     }; 
-    Serial.println("Awaiting acknowledgement from left glove");
+    delay(1000);
+    //Serial.println("Awaiting acknowledgement from left glove");
   }
 }
 
 void setupClock() {   
+  //Serial.println("Going to setup clock");
   GCLK->CLKCTRL.reg = GCLK_CLKCTRL_CLKEN |                // Enable the generic clock...
                       GCLK_CLKCTRL_GEN_GCLK0 |            // ....on GCLK0 at 48MHz
                       GCLK_CLKCTRL_ID_TC4_TC5;            // Feed the GCLK0 to TC4 and TC5
@@ -201,16 +206,21 @@ void setupClock() {
 void loop() {
   int i = 0; 
   // configure for # of iterations you'd like
-  while(i < 3) {
-    uint32_t microseconds = TC4->COUNT32.COUNT.reg / 48; 
-    uint32_t currentMillis = microseconds / 1000;
+  while(i < 500000) {
+    //Serial.println("iteration: " + String(i));
+    uint32_t microseconds = TC4->COUNT32.COUNT.reg / 48;
+    currentMillis = microseconds / 1000;
+    //Serial.println("microseconds:" + String(microseconds));
+    //Serial.println(String(currentMillis));
     // Read from sensors every 200ms
-    if (currentMillis - previousMillis >= 200) {
+    if (currentMillis%250 == 0) {
+      //Serial.println(String(currentMillis));
       previousMillis = currentMillis;
       // push reading from this glove to firebase
       updateIMUReadings();
     }
     i++;
   }
+  Serial.println("End of loop");
   while(1);
 }

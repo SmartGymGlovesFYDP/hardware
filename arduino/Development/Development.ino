@@ -32,6 +32,7 @@ float gz_old = 0;
 
 // Last time the IMU sensors were read, in ms
 uint32_t previousMillis = 0;
+uint32_t currentMillis = 0;
 unsigned int localPort = 2390; // local port to listen on
 IPAddress ip(10, 31, 164, 169);  // Static IP: 10.31.164.169
 char  ReplyBuffer[] = "acknowledged";
@@ -66,8 +67,6 @@ void updateIMUReadings() {
     //    Serial.println(gz);
   }
 
-  uint32_t microseconds = TC4->COUNT32.COUNT.reg / 48; 
-  uint32_t currentMillis = microseconds / 1000;
   uint32_t seconds = currentMillis / 1000;
   uint32_t minutes = seconds / 60;
   uint32_t hours = minutes / 60;
@@ -203,7 +202,7 @@ void loop() {
   // configure for # of iterations you'd like
   while(i < 3) {
     uint32_t microseconds = TC4->COUNT32.COUNT.reg / 48; 
-    uint32_t currentMillis = microseconds / 1000;
+    currentMillis = microseconds / 1000;
     // Read from sensors every 200ms
     if (currentMillis - previousMillis >= 200) {
       previousMillis = currentMillis;
