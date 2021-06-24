@@ -36,6 +36,8 @@ float gz_old = 0;
 // Last time the IMU sensors were read, in ms
 uint32_t previousMillis = 0;
 uint32_t currentMillis = 0;
+uint32_t minutes = 0;
+uint32_t hours = 0;
 
 /*------------FORWARD DECLARATIONS--------------*/
 void updateIMUReadings();
@@ -66,15 +68,26 @@ void updateIMUReadings() {
     //    Serial.print('\t');
     //    Serial.println(gz);
   }
-  
   uint32_t seconds = currentMillis / 1000;
-  uint32_t minutes = seconds / 60;
-  uint32_t hours = minutes / 60;
-    
-  String ms = currentMillis > 10? (currentMillis > 100? String(currentMillis) : "0" + String(currentMillis)) : "00" + String(currentMillis);
-  String secs = seconds > 10? String(seconds) : "0" + String(seconds);
-  String mins = minutes > 10? String(minutes) : "0" + String(minutes);
-  String hrs = hours > 10? String(hours) : "0" + String(hours);
+  //uint32_t minutes = seconds / 60;
+
+  // Reset if close to overflow (every 30 mins)
+  uint32_t microseconds = TC4->COUNT32.COUNT.reg / 48;
+  //Serial.println(microseconds);
+  if(microseconds >= 60000000) {
+    minutes++;
+    hours = minutes/60;
+    resetClock();
+    Serial.println(microseconds);
+  }
+  currentMillis %= 1000;
+  seconds %= 60;
+  minutes %= 60;
+  
+  String ms = currentMillis >= 10? (currentMillis >= 100? String(currentMillis) : "0" + String(currentMillis)) : "00" + String(currentMillis);
+  String secs = seconds >= 10? String(seconds) : "0" + String(seconds);
+  String mins = minutes >= 10? String(minutes) : "0" + String(minutes);
+  String hrs = hours >= 10? String(hours) : "0" + String(hours);
   String time_string = hrs + ':' + mins + ':' + secs + ':' + ms;
   //Serial.println(time_string);
   
@@ -203,10 +216,15 @@ void setupClock() {
   while(TC4->COUNT32.STATUS.bit.SYNCBUSY);                // Wait for (read) synchronization
 }
 
+void resetClock() {
+  TC4->COUNT32.CTRLBSET.reg = TC_CTRLBSET_CMD_RETRIGGER;   // Retrigger the TC4 timer
+  while (TC4->COUNT32.STATUS.bit.SYNCBUSY);   // Wait for syncrhonization
+}
+
 void loop() {
   int i = 0; 
   // configure for # of iterations you'd like
-  while(i < 500000) {
+  while(i < 250000000) {
     //Serial.println("iteration: " + String(i));
     uint32_t microseconds = TC4->COUNT32.COUNT.reg / 48;
     currentMillis = microseconds / 1000;
