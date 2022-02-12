@@ -6,5 +6,6 @@
 // either directly or indirectly.
 extern const char* WIFI_SSID;
 extern const char* WIFI_PASSWORD;
+//extern char WIFI_USER[];
 
 #endif

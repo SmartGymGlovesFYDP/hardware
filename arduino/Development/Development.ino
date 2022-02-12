@@ -15,8 +15,12 @@
 //    - Total = 121 bytes
 // Calculated at: https://arduinojson.org/v6/assistant/
 #define PAYLOAD_LENGTH 150
+#define PRESSURE_THRESHOLD 100
 
 /*------------GLOBAL VARIABLES--------------*/
+const int FSR_PIN = A0;
+int fsrADC = 0;
+
 FirebaseData firebaseData;
 WiFiUDP Udp;
 
@@ -128,7 +132,8 @@ void setup() {
   Serial.begin(9600);
   while (!Serial);
   Serial.println();
-
+  pinMode(FSR_PIN, INPUT);
+  
   // Set static IP address
   //WiFi.config(ip);
 
@@ -221,9 +226,10 @@ void resetClock() {
 }
 
 void loop() {
-  int i = 0; 
+  //int i = 0; 
   // configure for # of iterations you'd like
-  while(i < 250000000) {
+  while(fsrADC >= PRESSURE_THRESHOLD) {
+    fsrADC = analogRead(FSR_PIN);
     uint32_t microseconds = TC4->COUNT32.COUNT.reg / 48;
     currentMillis = microseconds / 1000;
     //Serial.println("in loop() on iteration " + String(i));
@@ -233,11 +239,17 @@ void loop() {
     if (currentMillis % 250 <= 10) {
       currentMillis -= currentMillis % 250;
       //Serial.println(String(currentMillis));
+      Serial.println("ADC: " + String(fsrADC));
       // push reading from this glove to firebase
       updateIMUReadings();
     }
-    i++;
+    //i++;
   }
-  Serial.println("End of loop");
-  while(1);
+
+
+  while(fsrADC < PRESSURE_THRESHOLD) {
+    fsrADC = analogRead(FSR_PIN);
+  }
+  //Serial.println("End of loop");
+  //while(1);
 }

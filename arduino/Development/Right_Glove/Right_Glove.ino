@@ -19,7 +19,7 @@
 /*------------GLOBAL VARIABLES--------------*/
 FirebaseData firebaseData;
 WiFiUDP Udp;
-//IPAddress left_ip(10, 31, 164, 169);  // Static IP of left glove: 10.31.164.169
+// IPAddress left_ip(10, 32, 110, 77);  // Static IP of left glove: 10.32.110.77
 IPAddress broadcastAddr(255, 255, 255, 255); // broadcast address 
 unsigned int left_port = 2390;
 unsigned int localPort = 2390;
@@ -39,6 +39,11 @@ uint32_t previousMillis = 0;
 uint32_t currentMillis = 0;
 uint32_t minutes = 0;
 uint32_t hours = 0;
+
+// Variables for pressure sensor
+const int FSR_PIN = A0; // Pin connected to FSR/resistor divider
+int fsrADC = 0;
+#define PRESSURE_THRESHOLD 100
 
 /*------------FORWARD DECLARATIONS--------------*/
 void updateIMUReadings();
@@ -122,13 +127,22 @@ void setup() {
   Serial.begin(9600);
   while (!Serial);
   Serial.println();
+
+  // Set A0 and input pin for pressure sensor
+  pinMode(FSR_PIN, INPUT);
   
   // Connect to Wi-Fi network
   Serial.println("Connecting to Wi-Fi");
   int status = WL_IDLE_STATUS;
   while (status != WL_CONNECTED) {
+    // status = WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    //status = WiFi.beginEnterprise(WIFI_SSID, WIFI_USER, WIFI_PASSWORD);
     status = WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
     Serial.println("Waiting to connect...");
+    //Serial.println(status);
+    //Serial.println(WIFI_SSID);
+    //Serial.println(WIFI_USER);
+    //Serial.println(WIFI_PASSWORD);
     delay(300);
   }
   
@@ -217,22 +231,26 @@ void resetClock() {
 }
 
 void loop() {
-  int i = 0; 
   // configure for # of iterations you'd like
-  while(i < 250000000) {
+  while(fsrADC >= PRESSURE_THRESHOLD) {
+    fsrADC = analogRead(FSR_PIN);
+    Serial.println("Sufficient force:" + String(fsrADC));
     uint32_t microseconds = TC4->COUNT32.COUNT.reg / 48;
     currentMillis = microseconds / 1000;
     //Serial.println("microseconds:" + String(microseconds));
     //Serial.println(String(currentMillis));
-    // Read from sensors every 200ms
-    if (currentMillis%250 == 0 <= 10) {
+    // Read from sensors every 250ms
+    if (currentMillis%250 <= 10) {
       currentMillis -= currentMillis%250;
       //Serial.println(String(currentMillis));
       // push reading from this glove to firebase
       updateIMUReadings();
     }
-    i++;
   }
-  Serial.println("End of loop");
-  while(1);
+
+  // Do not do anything while there is no pressure applied
+  while(fsrADC < PRESSURE_THRESHOLD) {
+    Serial.println("Not enough force" + String(fsrADC));
+    fsrADC = analogRead(FSR_PIN);
+  }
 }
