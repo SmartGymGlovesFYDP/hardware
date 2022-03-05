@@ -129,7 +129,7 @@ void updateIMUReadings() {
 void setup() {
   // Initialize serial monitor
   // (Used for debugging purposes)
-  //Serial.begin(9600);
+  Serial.begin(9600);
   //while (!Serial);
   //Serial.println();
   pinMode(FSR_PIN, INPUT);
@@ -146,9 +146,9 @@ void setup() {
     delay(300);
   }
   //Serial.println();
-  //Serial.print("Connected with IP: ");
-  //Serial.println(WiFi.localIP());
-  //Serial.println();
+  Serial.print("Connected with IP: ");
+  Serial.println(WiFi.localIP());
+  Serial.println();
 
   // Connect to Firebase
   Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH, WIFI_SSID, WIFI_PASSWORD);
@@ -188,10 +188,10 @@ void setup() {
   // Wait for start signal from right glove
   while(!Udp.parsePacket())
   {
-    //Serial.println("Awaiting UDP Packet from right glove");
+    Serial.println("Awaiting UDP Packet from right glove");
     delay(500);
   }; 
-  //Serial.println("Starting to send acknow. pack.");
+  Serial.println("Starting to send acknow. pack.");
   // send ack packet
   Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());
   Udp.write(ReplyBuffer);
@@ -239,7 +239,7 @@ void loop() {
     if (currentMillis % 250 <= 10) {
       currentMillis -= currentMillis % 250;
       //Serial.println(String(currentMillis));
-      //Serial.println("ADC: " + String(fsrADC));
+      Serial.println("ADC: " + String(fsrADC));
       // push reading from this glove to firebase
       updateIMUReadings();
     }

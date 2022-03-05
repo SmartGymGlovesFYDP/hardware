@@ -19,8 +19,8 @@
 /*------------GLOBAL VARIABLES--------------*/
 FirebaseData firebaseData;
 WiFiUDP Udp;
-IPAddress left_ip(10, 0, 0, 49);  // Static IP of left glove: 10.32.110.77
-//IPAddress broadcastAddr(255, 255, 255, 255); // broadcast address 
+//IPAddress left_ip(10, 0, 0, 49);  // Static IP of left glove: 10.32.110.77
+IPAddress broadcastAddr(255, 255, 255, 255); // broadcast address 
 unsigned int left_port = 2390;
 unsigned int localPort = 2390;
 
@@ -188,7 +188,7 @@ void setup() {
 
   // Send start signal to left glove and wait for ack packet
   while(1) {
-    if(!Udp.beginPacket(left_ip, left_port)) {
+    if(!Udp.beginPacket(broadcastAddr, left_port)) {
       //Serial.println("Udp.beginPacket(): Error with supplied IP or port of remote host");
     }
     char buf[] = "start";
