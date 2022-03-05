@@ -19,8 +19,8 @@
 /*------------GLOBAL VARIABLES--------------*/
 FirebaseData firebaseData;
 WiFiUDP Udp;
-// IPAddress left_ip(10, 32, 110, 77);  // Static IP of left glove: 10.32.110.77
-IPAddress broadcastAddr(255, 255, 255, 255); // broadcast address 
+IPAddress left_ip(10, 0, 0, 49);  // Static IP of left glove: 10.32.110.77
+//IPAddress broadcastAddr(255, 255, 255, 255); // broadcast address 
 unsigned int left_port = 2390;
 unsigned int localPort = 2390;
 
@@ -43,7 +43,7 @@ uint32_t hours = 0;
 // Variables for pressure sensor
 const int FSR_PIN = A0; // Pin connected to FSR/resistor divider
 int fsrADC = 0;
-#define PRESSURE_THRESHOLD 100
+#define PRESSURE_THRESHOLD 80
 
 /*------------FORWARD DECLARATIONS--------------*/
 void updateIMUReadings();
@@ -116,7 +116,7 @@ void updateIMUReadings() {
     //Serial.println("Pushing to firebase: " + jsonString);
     String title = time_string + "/rightGlove";
     if(!Firebase.pushJSON(firebaseData, title, jsonString)) {
-      Serial.println("Failed to push " + time_string + " to firebase");  
+      //Serial.println("Failed to push " + time_string + " to firebase");  
     }
   }
 }
@@ -124,21 +124,21 @@ void updateIMUReadings() {
 void setup() {
   // Initialize serial monitor
   // (Used for debugging purposes)
-  Serial.begin(9600);
-  while (!Serial);
-  Serial.println();
+  //Serial.begin(9600);
+  //while (!Serial);
+  //Serial.println();
 
   // Set A0 and input pin for pressure sensor
   pinMode(FSR_PIN, INPUT);
   
   // Connect to Wi-Fi network
-  Serial.println("Connecting to Wi-Fi");
+  //Serial.println("Connecting to Wi-Fi");
   int status = WL_IDLE_STATUS;
   while (status != WL_CONNECTED) {
     // status = WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
     //status = WiFi.beginEnterprise(WIFI_SSID, WIFI_USER, WIFI_PASSWORD);
     status = WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-    Serial.println("Waiting to connect...");
+    //Serial.println("Waiting to connect...");
     //Serial.println(status);
     //Serial.println(WIFI_SSID);
     //Serial.println(WIFI_USER);
@@ -146,10 +146,10 @@ void setup() {
     delay(300);
   }
   
-  Serial.println();
-  Serial.print("Connected with IP: ");
-  Serial.println(WiFi.localIP());
-  Serial.println();
+  //Serial.println();
+  //Serial.print("Connected with IP: ");
+  //Serial.println(WiFi.localIP());
+  //Serial.println();
 
   // Connect to Firebase
   Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH, WIFI_SSID, WIFI_PASSWORD);
@@ -157,44 +157,44 @@ void setup() {
 
   // Open socket on local port for listening to incoming UDP packets
   if(!Udp.begin(localPort)) {
-    Serial.println("Error initiliazing UDP module - no sockets available");
+    //Serial.println("Error initiliazing UDP module - no sockets available");
   }
 
-  Serial.println("-----------------------------------");
-  Serial.println("----------Begin Sampling-----------");
-  Serial.println("-----------------------------------");
-  Serial.println();
+  //Serial.println("-----------------------------------");
+  //Serial.println("----------Begin Sampling-----------");
+  //Serial.println("-----------------------------------");
+  //Serial.println();
 
   // Initialize IMU sensors
   if (!IMU.begin()) {
-    Serial.println("Failed to initialize IMU!");
+    //Serial.println("Failed to initialize IMU!");
     while (1);
   }
 
   // DEBUG INFO: Sample rate
   // Accelerometer sample rate in Hz and G's
-  Serial.print("Accelerometer sample rate = ");
-  Serial.print(IMU.accelerationSampleRate());
-  Serial.println(" Hz");
-  Serial.println("Acceleration in G's");
-  Serial.println();
+  //Serial.print("Accelerometer sample rate = ");
+  //Serial.print(IMU.accelerationSampleRate());
+  //Serial.println(" Hz");
+  //Serial.println("Acceleration in G's");
+  //Serial.println();
   
   // Gyroscope sample rate in Hz and degrees/s
-  Serial.print("Gyroscope sample rate = ");
-  Serial.print(IMU.gyroscopeSampleRate());
-  Serial.println(" Hz");
-  Serial.println("Gyroscope in degrees/second");
-  Serial.println();
+  //Serial.print("Gyroscope sample rate = ");
+  //Serial.print(IMU.gyroscopeSampleRate());
+  //Serial.println(" Hz");
+  //Serial.println("Gyroscope in degrees/second");
+  //Serial.println();
 
   // Send start signal to left glove and wait for ack packet
   while(1) {
-    if(!Udp.beginPacket(broadcastAddr, left_port)) {
-      Serial.println("Udp.beginPacket(): Error with supplied IP or port of remote host");
+    if(!Udp.beginPacket(left_ip, left_port)) {
+      //Serial.println("Udp.beginPacket(): Error with supplied IP or port of remote host");
     }
     char buf[] = "start";
     Udp.write(buf);
     if(!Udp.endPacket()) {
-      Serial.println("Error sending UDP Packet to left glove");
+      //Serial.println("Error sending UDP Packet to left glove");
     };
     if(Udp.parsePacket())
     {
@@ -202,7 +202,7 @@ void setup() {
       break;
     }; 
     delay(1000);
-    Serial.println("Awaiting acknowledgement from left glove");
+    //Serial.println("Awaiting acknowledgement from left glove");
   }
 }
 
@@ -234,7 +234,7 @@ void loop() {
   // configure for # of iterations you'd like
   while(fsrADC >= PRESSURE_THRESHOLD) {
     fsrADC = analogRead(FSR_PIN);
-    Serial.println("Sufficient force:" + String(fsrADC));
+    //Serial.println("Sufficient force:" + String(fsrADC));
     uint32_t microseconds = TC4->COUNT32.COUNT.reg / 48;
     currentMillis = microseconds / 1000;
     //Serial.println("microseconds:" + String(microseconds));
@@ -250,7 +250,7 @@ void loop() {
 
   // Do not do anything while there is no pressure applied
   while(fsrADC < PRESSURE_THRESHOLD) {
-    Serial.println("Not enough force" + String(fsrADC));
+    //Serial.println("Not enough force" + String(fsrADC));
     fsrADC = analogRead(FSR_PIN);
   }
 }

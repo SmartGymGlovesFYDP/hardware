@@ -7,7 +7,7 @@
 /*------------MACROS--------------*/
 // Firebase configuration
 #define FIREBASE_HOST "smartgloves-e450e-default-rtdb.firebaseio.com"
-#define FIREBASE_AUTH "dGconvs4SP3IWXB7wohi9KliWVZnIRHp3IgJrrOY"
+#define FIREBASE_AUTH "nVXQ8jwSV9b2aNOA7NwbB9L2UJCuDCfWQRB901Er"
 
 //  Size of JSON payload is determined as follows:
 //    - timestamp -> string = 9 bytes (00:00:00)
@@ -15,7 +15,7 @@
 //    - Total = 121 bytes
 // Calculated at: https://arduinojson.org/v6/assistant/
 #define PAYLOAD_LENGTH 150
-#define PRESSURE_THRESHOLD 100
+#define PRESSURE_THRESHOLD 80
 
 /*------------GLOBAL VARIABLES--------------*/
 const int FSR_PIN = A0;
@@ -96,8 +96,8 @@ void updateIMUReadings() {
   String time_string = hrs + ':' + mins + ':' + secs + ':' + ms;
   //Serial.println(time_string);
   
-  if(ax != ax_old || ay != ay_old || az != az_old ||
-     gx != gx_old || gy != gy_old || gz != gz_old) {
+  //if(ax != ax_old || ay != ay_old || az != az_old ||
+    // gx != gx_old || gy != gy_old || gz != gz_old) {
     //Serial.println("Reading changed");
     ax_old = ax;
     ay_old = ay;
@@ -121,34 +121,34 @@ void updateIMUReadings() {
     //Serial.println("Pushing to firebase: " + jsonString);
     String title = time_string + "/leftGlove";
     if(!Firebase.pushJSON(firebaseData, title, jsonString)) {
-      Serial.println("Failed to push " + time_string + " to firebase");  
+      //Serial.println("Failed to push " + time_string + " to firebase");  
     }
-  }
+  //}
 }
 
 void setup() {
   // Initialize serial monitor
   // (Used for debugging purposes)
-  Serial.begin(9600);
-  while (!Serial);
-  Serial.println();
+  //Serial.begin(9600);
+  //while (!Serial);
+  //Serial.println();
   pinMode(FSR_PIN, INPUT);
   
   // Set static IP address
   //WiFi.config(ip);
 
   // Connect to Wi-Fi network
-  Serial.println("Connecting to Wi-Fi");
+  //Serial.println("Connecting to Wi-Fi");
   int status = WL_IDLE_STATUS;
   while (status != WL_CONNECTED) {
     status = WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-    Serial.println("Waiting to connect...");
+    //Serial.println("Waiting to connect...");
     delay(300);
   }
-  Serial.println();
-  Serial.print("Connected with IP: ");
-  Serial.println(WiFi.localIP());
-  Serial.println();
+  //Serial.println();
+  //Serial.print("Connected with IP: ");
+  //Serial.println(WiFi.localIP());
+  //Serial.println();
 
   // Connect to Firebase
   Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH, WIFI_SSID, WIFI_PASSWORD);
@@ -156,23 +156,23 @@ void setup() {
 
   // Open socket on local port for listening to incoming UDP packets
   if(!Udp.begin(localPort)) {
-    Serial.println("Error initiliazing UDP module - no sockets available");
+    //Serial.println("Error initiliazing UDP module - no sockets available");
   }
 
-  Serial.println("-----------------------------------");
-  Serial.println("----------Begin Sampling-----------");
-  Serial.println("-----------------------------------");
-  Serial.println();
+  //Serial.println("-----------------------------------");
+  //Serial.println("----------Begin Sampling-----------");
+  //Serial.println("-----------------------------------");
+  //Serial.println();
 
   // Initialize IMU sensors
   if (!IMU.begin()) {
-    Serial.println("Failed to initialize IMU!");
+    //Serial.println("Failed to initialize IMU!");
     while (1);
   }
 
   // DEBUG INFO: Sample rate
   // Accelerometer sample rate in Hz and G's
-  Serial.print("Accelerometer sample rate = ");
+  /*Serial.print("Accelerometer sample rate = ");
   Serial.print(IMU.accelerationSampleRate());
   Serial.println(" Hz");
   Serial.println("Acceleration in G's");
@@ -183,15 +183,15 @@ void setup() {
   Serial.print(IMU.gyroscopeSampleRate());
   Serial.println(" Hz");
   Serial.println("Gyroscope in degrees/second");
-  Serial.println();
+  Serial.println();*/
 
   // Wait for start signal from right glove
   while(!Udp.parsePacket())
   {
-    Serial.println("Awaiting UDP Packet from right glove");
+    //Serial.println("Awaiting UDP Packet from right glove");
     delay(500);
   }; 
-  Serial.println("Starting to send acknow. pack.");
+  //Serial.println("Starting to send acknow. pack.");
   // send ack packet
   Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());
   Udp.write(ReplyBuffer);
@@ -239,7 +239,7 @@ void loop() {
     if (currentMillis % 250 <= 10) {
       currentMillis -= currentMillis % 250;
       //Serial.println(String(currentMillis));
-      Serial.println("ADC: " + String(fsrADC));
+      //Serial.println("ADC: " + String(fsrADC));
       // push reading from this glove to firebase
       updateIMUReadings();
     }
