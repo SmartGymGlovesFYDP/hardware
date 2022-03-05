@@ -7,7 +7,7 @@
 /*------------MACROS--------------*/
 // Firebase configuration
 #define FIREBASE_HOST "smartgloves-e450e-default-rtdb.firebaseio.com"
-#define FIREBASE_AUTH "dGconvs4SP3IWXB7wohi9KliWVZnIRHp3IgJrrOY"
+#define FIREBASE_AUTH "nVXQ8jwSV9b2aNOA7NwbB9L2UJCuDCfWQRB901Er"
 
 //  Size of JSON payload is determined as follows:
 //    - timestamp -> string = 9 bytes (00:00:00)
@@ -124,9 +124,9 @@ void updateIMUReadings() {
 void setup() {
   // Initialize serial monitor
   // (Used for debugging purposes)
-  //Serial.begin(9600);
-  //while (!Serial);
-  //Serial.println();
+  Serial.begin(9600);
+  while (!Serial);
+  Serial.println("aiyaa");
 
   // Set A0 and input pin for pressure sensor
   pinMode(FSR_PIN, INPUT);
@@ -138,7 +138,7 @@ void setup() {
     // status = WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
     //status = WiFi.beginEnterprise(WIFI_SSID, WIFI_USER, WIFI_PASSWORD);
     status = WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-    //Serial.println("Waiting to connect...");
+    Serial.println("Waiting to connect...");
     //Serial.println(status);
     //Serial.println(WIFI_SSID);
     //Serial.println(WIFI_USER);
@@ -147,8 +147,8 @@ void setup() {
   }
   
   //Serial.println();
-  //Serial.print("Connected with IP: ");
-  //Serial.println(WiFi.localIP());
+  Serial.print("Connected with IP: ");
+  Serial.println(WiFi.localIP());
   //Serial.println();
 
   // Connect to Firebase
@@ -202,7 +202,7 @@ void setup() {
       break;
     }; 
     delay(1000);
-    //Serial.println("Awaiting acknowledgement from left glove");
+    Serial.println("Awaiting acknowledgement from left glove");
   }
 }
 
