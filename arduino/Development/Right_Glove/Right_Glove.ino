@@ -43,7 +43,7 @@ uint32_t hours = 0;
 // Variables for pressure sensor
 const int FSR_PIN = A0; // Pin connected to FSR/resistor divider
 int fsrADC = 0;
-#define PRESSURE_THRESHOLD 80
+#define PRESSURE_THRESHOLD 30
 
 /*------------FORWARD DECLARATIONS--------------*/
 void updateIMUReadings();
@@ -233,7 +233,6 @@ void resetClock() {
 void loop() {
   // configure for # of iterations you'd like
   while(fsrADC >= PRESSURE_THRESHOLD) {
-    fsrADC = analogRead(FSR_PIN);
     //Serial.println("Sufficient force:" + String(fsrADC));
     uint32_t microseconds = TC4->COUNT32.COUNT.reg / 48;
     currentMillis = microseconds / 1000;
@@ -241,6 +240,7 @@ void loop() {
     //Serial.println(String(currentMillis));
     // Read from sensors every 250ms
     if (currentMillis%250 <= 10) {
+      fsrADC = analogRead(FSR_PIN);
       currentMillis -= currentMillis%250;
       //Serial.println(String(currentMillis));
       // push reading from this glove to firebase
