@@ -15,7 +15,7 @@
 //    - Total = 121 bytes
 // Calculated at: https://arduinojson.org/v6/assistant/
 #define PAYLOAD_LENGTH 150
-#define PRESSURE_THRESHOLD 30
+#define PRESSURE_THRESHOLD 80
 
 /*------------GLOBAL VARIABLES--------------*/
 const int FSR_PIN = A0;
@@ -23,16 +23,6 @@ int fsrADC = 0;
 
 FirebaseData firebaseData;
 WiFiUDP Udp;
-
-// Variables for storing previous accelerometer readings
-float ax_old = 0;
-float ay_old = 0;
-float az_old = 0;
-
-// Variables for storing previous gyroscope readings
-float gx_old = 0;
-float gy_old = 0;
-float gz_old = 0;
 
 // Last time the IMU sensors were read, in ms
 uint32_t previousMillis = 0;
@@ -43,6 +33,9 @@ uint32_t minutes = 0;
 unsigned int localPort = 2390; // local port to listen on
 IPAddress ip(10, 31, 164, 169);  // Static IP: 10.31.164.169
 char  ReplyBuffer[] = "acknowledged";
+
+#define ACCELERATION_MAX 2
+#define LED_A 2
 
 /*------------FORWARD DECLARATIONS--------------*/
 void updateIMUReadings();
@@ -73,6 +66,15 @@ void updateIMUReadings() {
     //    Serial.print('\t');
     //    Serial.println(gz);
   }
+
+  Serial.println(String(sqrt(sq(ax) + sq(ay) + sq(az))));
+  if (sqrt(sq(ax) + sq(ay) + sq(az)) > ACCELERATION_MAX) {
+    digitalWrite(LED_A, HIGH);
+  }
+  else {
+    digitalWrite(LED_A, LOW);
+  }
+  
   uint32_t seconds = currentMillis / 1000;
   //uint32_t minutes = seconds / 60;
 
@@ -95,35 +97,25 @@ void updateIMUReadings() {
   String hrs = hours >= 10? String(hours) : "0" + String(hours);
   String time_string = hrs + ':' + mins + ':' + secs + ':' + ms;
   //Serial.println(time_string);
+
+  StaticJsonDocument<PAYLOAD_LENGTH> doc;
+  doc["ax"] = ax;
+  doc["ay"] = ay;
+  doc["az"] = az;
+  doc["gx"] = gx;
+  doc["gy"] = gy;
+  doc["gz"] = gz;
+  doc["timestamp"] = time_string;
+  // TODO: Add attribute to indicate which glove is sending the data
+
+  String jsonString;
+  serializeJson(doc, jsonString);
+  //Serial.println("Pushing to firebase: " + jsonString);
+  String title = time_string + "/leftGlove";
+  if(!Firebase.pushJSON(firebaseData, title, jsonString)) {
+    //Serial.println("Failed to push " + time_string + " to firebase");  
+  }
   
-  //if(ax != ax_old || ay != ay_old || az != az_old ||
-    // gx != gx_old || gy != gy_old || gz != gz_old) {
-    //Serial.println("Reading changed");
-    ax_old = ax;
-    ay_old = ay;
-    az_old = az;
-    gx_old = gx;
-    gy_old = gy;
-    gz_old = gz;
-
-    StaticJsonDocument<PAYLOAD_LENGTH> doc;
-    doc["ax"] = ax;
-    doc["ay"] = ay;
-    doc["az"] = az;
-    doc["gx"] = gx;
-    doc["gy"] = gy;
-    doc["gz"] = gz;
-    doc["timestamp"] = time_string;
-    // TODO: Add attribute to indicate which glove is sending the data
-
-    String jsonString;
-    serializeJson(doc, jsonString);
-    //Serial.println("Pushing to firebase: " + jsonString);
-    String title = time_string + "/leftGlove";
-    if(!Firebase.pushJSON(firebaseData, title, jsonString)) {
-      //Serial.println("Failed to push " + time_string + " to firebase");  
-    }
-  //}
 }
 
 void setup() {
@@ -133,6 +125,7 @@ void setup() {
   //while (!Serial);
   //Serial.println();
   pinMode(FSR_PIN, INPUT);
+  pinMode(LED_A, OUTPUT);
   
   // Set static IP address
   //WiFi.config(ip);
@@ -146,9 +139,9 @@ void setup() {
     delay(300);
   }
   //Serial.println();
-  Serial.print("Connected with IP: ");
-  Serial.println(WiFi.localIP());
-  Serial.println();
+  //Serial.print("Connected with IP: ");
+  //Serial.println(WiFi.localIP());
+  //Serial.println();
 
   // Connect to Firebase
   Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH, WIFI_SSID, WIFI_PASSWORD);
@@ -188,10 +181,10 @@ void setup() {
   // Wait for start signal from right glove
   while(!Udp.parsePacket())
   {
-    Serial.println("Awaiting UDP Packet from right glove");
+    //Serial.println("Awaiting UDP Packet from right glove");
     delay(500);
   }; 
-  Serial.println("Starting to send acknow. pack.");
+  //Serial.println("Starting to send acknow. pack.");
   // send ack packet
   Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());
   Udp.write(ReplyBuffer);
@@ -236,10 +229,11 @@ void loop() {
     //Serial.println(String(microseconds));
     // Read from sensors every 200ms
     if (currentMillis % 250 <= 10) {
+      
       fsrADC = analogRead(FSR_PIN);
       currentMillis -= currentMillis % 250;
       //Serial.println(String(currentMillis));
-      Serial.println("ADC: " + String(fsrADC));
+      //Serial.println("ADC: " + String(fsrADC));
       // push reading from this glove to firebase
       updateIMUReadings();
     }

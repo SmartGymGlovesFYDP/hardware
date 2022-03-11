@@ -24,16 +24,6 @@ IPAddress broadcastAddr(255, 255, 255, 255); // broadcast address
 unsigned int left_port = 2390;
 unsigned int localPort = 2390;
 
-// Variables for storing previous accelerometer readings
-float ax_old = 0;
-float ay_old = 0;
-float az_old = 0;
-
-// Variables for storing previous gyroscope readings
-float gx_old = 0;
-float gy_old = 0;
-float gz_old = 0;
-
 // Last time the IMU sensors were read, in ms
 uint32_t previousMillis = 0;
 uint32_t currentMillis = 0;
@@ -43,7 +33,10 @@ uint32_t hours = 0;
 // Variables for pressure sensor
 const int FSR_PIN = A0; // Pin connected to FSR/resistor divider
 int fsrADC = 0;
-#define PRESSURE_THRESHOLD 30
+
+#define PRESSURE_THRESHOLD 80
+#define ACCELERATION_MAX 2
+#define LED_A 2
 
 /*------------FORWARD DECLARATIONS--------------*/
 void updateIMUReadings();
@@ -74,6 +67,14 @@ void updateIMUReadings() {
     //    Serial.print('\t');
     //    Serial.println(gz);
   }
+
+  if (sqrt(sq(ax) + sq(ay) + sq(az)) > ACCELERATION_MAX) {
+    digitalWrite(LED_A, HIGH);
+  }
+  else {
+    digitalWrite(LED_A, LOW);
+  }
+  
   uint32_t seconds = currentMillis / 1000;
 
   // Reset if close to overflow (every 30 mins)
@@ -93,43 +94,33 @@ void updateIMUReadings() {
   String hrs = hours >= 10? String(hours) : "0" + String(hours);
   String time_string = hrs + ':' + mins + ':' + secs + ':' + ms;
 
-  if(ax != ax_old || ay != ay_old || az != az_old ||
-     gx != gx_old || gy != gy_old || gz != gz_old) {
-    ax_old = ax;
-    ay_old = ay;
-    az_old = az;
-    gx_old = gx;
-    gy_old = gy;
-    gz_old = gz;
+  StaticJsonDocument<PAYLOAD_LENGTH> doc;
+  doc["ax"] = ax;
+  doc["ay"] = ay;
+  doc["az"] = az;
+  doc["gx"] = gx;
+  doc["gy"] = gy;
+  doc["gz"] = gz;
+  doc["timestamp"] = time_string;
 
-    StaticJsonDocument<PAYLOAD_LENGTH> doc;
-    doc["ax"] = ax;
-    doc["ay"] = ay;
-    doc["az"] = az;
-    doc["gx"] = gx;
-    doc["gy"] = gy;
-    doc["gz"] = gz;
-    doc["timestamp"] = time_string;
-
-    String jsonString;
-    serializeJson(doc, jsonString);
-    //Serial.println("Pushing to firebase: " + jsonString);
-    String title = time_string + "/rightGlove";
-    if(!Firebase.pushJSON(firebaseData, title, jsonString)) {
-      //Serial.println("Failed to push " + time_string + " to firebase");  
-    }
+  String jsonString;
+  serializeJson(doc, jsonString);
+  //Serial.println("Pushing to firebase: " + jsonString);
+  String title = time_string + "/rightGlove";
+  if(!Firebase.pushJSON(firebaseData, title, jsonString)) {
+    //Serial.println("Failed to push " + time_string + " to firebase");
   }
 }
 
 void setup() {
   // Initialize serial monitor
   // (Used for debugging purposes)
-  Serial.begin(9600);
-  while (!Serial);
-  Serial.println("aiyaa");
+  //Serial.begin(9600);
+  //while (!Serial);
 
   // Set A0 and input pin for pressure sensor
   pinMode(FSR_PIN, INPUT);
+  pinMode(LED_A, OUTPUT);
   
   // Connect to Wi-Fi network
   //Serial.println("Connecting to Wi-Fi");
@@ -138,7 +129,7 @@ void setup() {
     // status = WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
     //status = WiFi.beginEnterprise(WIFI_SSID, WIFI_USER, WIFI_PASSWORD);
     status = WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-    Serial.println("Waiting to connect...");
+    //Serial.println("Waiting to connect...");
     //Serial.println(status);
     //Serial.println(WIFI_SSID);
     //Serial.println(WIFI_USER);
@@ -147,8 +138,8 @@ void setup() {
   }
   
   //Serial.println();
-  Serial.print("Connected with IP: ");
-  Serial.println(WiFi.localIP());
+  //Serial.print("Connected with IP: ");
+  //Serial.println(WiFi.localIP());
   //Serial.println();
 
   // Connect to Firebase
@@ -202,7 +193,7 @@ void setup() {
       break;
     }; 
     delay(1000);
-    Serial.println("Awaiting acknowledgement from left glove");
+    //Serial.println("Awaiting acknowledgement from left glove");
   }
 }
 
